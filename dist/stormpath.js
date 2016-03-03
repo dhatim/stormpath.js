@@ -1,8 +1,3 @@
-/*
- Stormpath.js v0.5.2
- (c) 2014-2016 Stormpath, Inc. http://stormpath.com
- License: Apache 2.0
-*/
 (function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.Stormpath = f()}})(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 'use strict';
 
@@ -43,7 +38,7 @@ function Client (options,readyCallback) {
   }
 
   try {
-    self.jwtPayload = JSON.parse(base64.atob(jwtSegments[1]));
+    self.jwtPayload = JSON.parse(base64.decodeBase64Url(jwtSegments[1]));
   } catch (e) {
     return deferCallback(cb,[new Error(strings.errors.MALFORMED_JWT_CLAIMS)]);
   }
@@ -495,10 +490,14 @@ function b64EncodeUnicode(str) {
   }));
 }
 
+function base64urlToBase64(base64){
+    return base64.replace(/-/g, '+').replace(/_/g, '/');
+}
+
 module.exports = {
   base64: {
-    atob: function atob(str){
-      return decodeURIComponent(window.atob(str));
+    decodeBase64Url: function (str){
+      return decodeURIComponent(window.atob(base64urlToBase64(str)));
     },
     btoa: function btoa(str){
       var v = b64EncodeUnicode(str);
