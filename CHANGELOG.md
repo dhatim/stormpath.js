@@ -1,3 +1,54 @@
+## 0.7.1
+
+The internal request executor will now return the SESSION_EXPIRED error on next
+tick, to integrate well with Angular's digest process.
+
+## 0.7.0
+
+* Registration attempts now post to the Organization, if an Organization is
+specified when the user is redirected to ID Site.  Previously they were posted
+to the Application's endpoint.
+
+ **Known Bug**: In this version, the end user cannot recover from the duplicate
+ account error.  This is an issue with the Stormpath REST API and a fix will be
+ released soon.
+
+* This version also properly surfaces 403 errors from the Stormpath REST API.
+
+## 0.6.2
+
+* Fixed a problem in the client constructor that would cause an exception in
+`getJwtFromUrl()`.  The error occurred because we were expecting all application
+URLs to be on api.stormpath.com.  This was preventing Enterprise and Private
+Deployment tenants from using the 0.6.x series.
+
+## 0.6.1
+
+* Reverted the changes from 0.5.2, that used `getResponseHeader()` instead of
+`getAllResponseHeaders()`.  This caused "Refused to get unsafe header" errors to
+be logged.  These errors did not break application behavior, but did introduce
+a source of confusion.  This revert means that Firefox < 22 will not be
+compatible with this library.
+
+* This library now uses the [Buffer module](https://github.com/feross/buffer)
+for Base64-URL decoding, and should be more robust with JWTs that contain
+Unicode characters and string-encoded JSON values.
+
+* Fixed a bug with the password reset flow that was introduced by 0.6.0.  When
+arriving on the #/reset?jwt=<jwt> URL, you would be directed to #/ and not shown
+the reset password form.
+
+## 0.6.0
+
+The Id Site Request Executor will now pull the initial JWT from the URL and
+store it in a cookie.  Subsequent JWTs, obtained during API interaction, will be
+stored in the cookie.  This allows the end-user to reload the page without
+breaking the authenticated session.
+
+If using this library with Angular, you should use Angular >= 1.2.29, as
+previous versions may have a digest error when stormpath.js removes the JWT from
+the window location.
+
 ## 0.5.2
 
 The request executor now uses `xmlHttpRequest.getResponseHeader()` as a fallback
