@@ -66,7 +66,7 @@ function Client (options,readyCallback) {
   self.requestExecutor.execute(
     {
       method: 'GET',
-      url: self.idSiteParentResource + '?expand=idSiteModel',
+      url: self.idSiteParentResource + '?expand=idSiteModel,customData',
       json: true
     },
     function (err,application) {
@@ -91,7 +91,7 @@ function Client (options,readyCallback) {
         self.saveSessionToken();
       }
 
-      cb(null,application.idSiteModel);
+      cb(null,application.idSiteModel, application.customData);
     }
   );
 }
