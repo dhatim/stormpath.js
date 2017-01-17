@@ -1,6 +1,6 @@
 /*
- Stormpath.js v0.7.1
- (c) 2014-2016 Stormpath, Inc. http://stormpath.com
+ Stormpath.js v0.8.0
+ (c) 2014-2017 Stormpath, Inc. http://stormpath.com
  License: Apache 2.0
 */
 (function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.Stormpath = f()}})(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
@@ -13,6 +13,7 @@ var utils = require('./utils');
 
 
 var base64 = utils.base64;
+
 /**
  * Creates a Stormpath.js Client
  *
@@ -62,7 +63,12 @@ function Client (options,readyCallback) {
     self.idSiteParentResource = self.jwtPayload.ash;
   }
 
+  if (self.jwtPayload.require_mfa) {
+    self.requireMfa = self.jwtPayload.require_mfa;
+  }
+
   self.requestExecutor = opts.requestExecutor || new IdSiteRequestExecutor(self.jwt);
+
   self.requestExecutor.execute(
     {
       method: 'GET',
@@ -153,6 +159,14 @@ Client.prototype.getJwtFromUrl = function () {
   }
 };
 
+Client.prototype.getSessionJwt = function() {
+  return utils.parseJwt(this.requestExecutor.authToken);
+};
+
+Client.prototype.getSessionToken = function() {
+  return this.requestExecutor.authToken;
+};
+
 Client.prototype.saveSessionToken = function() {
   // With our new access token, remove the previous access token from
   // the hash and save the new one to the cookie
@@ -199,10 +213,13 @@ Client.prototype.getPasswordResetToken = function() {
  * @param  {object} credentials - Example: <pre>{ username: '', password: ''}</pre>
  * @param  {Function} callback
  */
-Client.prototype.login = function login (credentials,callback) {
+Client.prototype.login = function login (credentials, options, callback) {
   var self = this;
   var data;
   var creds = typeof credentials === 'object' ? credentials : null;
+
+  callback = typeof options === 'function' ? options : callback;
+
   if (!creds) {
     throw new Error('must provide an object');
   } else if (creds.providerData) {
@@ -219,10 +236,17 @@ Client.prototype.login = function login (credentials,callback) {
   if (creds.accountStore) {
     data.accountStore = creds.accountStore;
   }
+
+  var queryString = null;
+
+  if (options && options.redirect) {
+    queryString = '?redirect=' + encodeURIComponent(options.redirect);
+  }
+
   self.requestExecutor.execute(
     {
       method: 'POST',
-      url: self.appHref+'/loginAttempts',
+      url: self.appHref+'/loginAttempts' + (queryString ? queryString : ''),
       json: data
     },
     callback || utils.noop
@@ -390,6 +414,76 @@ Client.prototype.sendPasswordResetEmail = function sendPasswordResetEmail (email
     },
     callback || utils.noop
   );
+};
+
+Client.prototype.getFactors = function getFactors(account, callback) {
+  if (!account || !account.href) {
+    throw new Error('Client.getFactors(account[, callback]) must be called with a valid account object.');
+  }
+
+  callback = callback || utils.noop;
+
+  var request = {
+    method: 'GET',
+    url: account.href + '/factors',
+    json: true
+  };
+
+  this.requestExecutor.execute(request, callback);
+};
+
+Client.prototype.createFactor = function createFactor(account, data, callback) {
+  if (!account || !account.href) {
+    throw new Error('Client.createFactor(account, data, [, callback]) must be called with a valid account object.');
+  }
+
+  callback = callback || utils.noop;
+
+  var request = {
+    method: 'POST',
+    url: account.href + '/factors',
+    json: data || {}
+  };
+
+  this.requestExecutor.execute(request, callback);
+};
+
+Client.prototype.createChallenge = function (factor, data, callback) {
+  // Make the data parameter optional.
+  if (callback === undefined) {
+    callback = data;
+    data = undefined;
+  }
+
+  if (!factor || !factor.href) {
+    throw new Error('Client.createChallenge(factor[, data], callback) must be called with a valid factor object.');
+  }
+
+  callback = callback || utils.noop;
+
+  var request = {
+    method: 'POST',
+    url: factor.challenges.href,
+    json: data || true
+  };
+
+  this.requestExecutor.execute(request, callback);
+};
+
+Client.prototype.updateChallenge = function (challenge, data, callback) {
+  if (!challenge || !challenge.href) {
+    throw new Error('Client.updateChallenge(challenge, data, callback) must be called with a valid challenge object.');
+  }
+
+  callback = callback || utils.noop;
+
+  var request = {
+    method: 'POST',
+    url: challenge.href,
+    json: data
+  };
+
+  this.requestExecutor.execute(request, callback);
 };
 
 module.exports = Client;
@@ -564,6 +658,15 @@ function b64EncodeUnicode(str) {
   }));
 }
 
+function base64Encode(str) {
+  return new Buffer(str,'base64').toString();
+}
+
+function base64Decode(str) {
+  var v = b64EncodeUnicode(str);
+  return v;
+}
+
 function getCookie(name) {
   var cookie = document.cookie.match(new RegExp(name + '=([^;]+)'));
   if (cookie) {
@@ -571,17 +674,34 @@ function getCookie(name) {
   }
 }
 
+function parseJwt(rawJwt) {
+  if (!rawJwt) {
+    return false;
+  }
+
+  var segments = rawJwt.split('.', 3);
+
+  if (!segments || segments.length !== 3) {
+    return false;
+  }
+
+  return {
+    header: JSON.parse(atob(segments[0])),
+    body: JSON.parse(atob(segments[1])),
+    signature: segments[2],
+    toString: function () {
+      return rawJwt;
+    }
+  };
+}
+
 module.exports = {
   base64: {
-    atob: function atob(str){
-      return new Buffer(str,'base64').toString();
-    },
-    btoa: function btoa(str){
-      var v = b64EncodeUnicode(str);
-      return v;
-    }
+    atob: base64Encode,
+    btoa: base64Decode
   },
   noop: function(){},
+  parseJwt: parseJwt,
   getCookie: getCookie
 };
 
