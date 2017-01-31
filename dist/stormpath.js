@@ -51,7 +51,7 @@ function Client (options,readyCallback) {
 
   self.appHref = self.jwtPayload.app_href;
   self.sptoken = self.getPasswordResetToken();
-  self.baseurl = self.appHref.match('^.+//([^\/]+)\/')[0];
+  self.baseurl = self.appHref.match('(^.+?/)v\\d/')[1];
 
   self.idSiteParentResource = self.appHref;
 
@@ -464,7 +464,7 @@ Client.prototype.createChallenge = function (factor, data, callback) {
   var request = {
     method: 'POST',
     url: factor.challenges.href,
-    json: data || true
+    json: data || {}
   };
 
   this.requestExecutor.execute(request, callback);
@@ -618,6 +618,7 @@ IdSiteRequestExecutor.prototype.execute = function (xhrRequestOptions,callback) 
   }
 
   xhrRequestOptions.headers.Authorization = 'Bearer ' + executor.authToken;
+  xhrRequestOptions.responseType = 'json';
 
   return xhr(xhrRequestOptions, function xhrCallback (err,response,body) {
     executor.handleResponse(err,response,body,callback);
