@@ -659,8 +659,12 @@ function b64EncodeUnicode(str) {
   }));
 }
 
+function base64urlToBase64(base64){
+  return base64.replace(/-/g, '+').replace(/_/g, '/');
+}
+
 function base64Encode(str) {
-  return new Buffer(str,'base64').toString();
+  return new Buffer(base64urlToBase64(str),'base64').toString();
 }
 
 function base64Decode(str) {
@@ -687,8 +691,8 @@ function parseJwt(rawJwt) {
   }
 
   return {
-    header: JSON.parse(atob(segments[0])),
-    body: JSON.parse(atob(segments[1])),
+    header: JSON.parse(atob(base64urlToBase64(segments[0]))),
+    body: JSON.parse(atob(base64urlToBase64(segments[1]))),
     signature: segments[2],
     toString: function () {
       return rawJwt;
