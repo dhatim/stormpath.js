@@ -97,7 +97,7 @@ function Client (options,readyCallback) {
         self.saveSessionToken();
       }
 
-      cb(null,application.idSiteModel, application.customData);
+      cb(null,application.idSiteModel, application);
     }
   );
 }
@@ -187,7 +187,7 @@ Client.prototype.getPasswordResetToken = function() {
     // We need to get the token from jwt.scope.application.SLUG.passwordResetToken.SLUG
     // See https://gist.github.com/edjiang/a570a4d9e60d08492def97938b35cdfa for an example token
     var applicationId = self.appHref.match(/[^\/]+$/)[0];
-    var application = self.jwtPayload.scope.application[applicationId];
+    var application = self.jwtPayload.scope.applications[applicationId];
 
     // Get all things in the application object, reduce to just the password reset token object
     var passwordResetTokens = application.map(function(contents) {
